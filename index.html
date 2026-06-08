@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Minecraft World Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Fallback if Google Fonts blocked */
+@import url('https://fonts.bunny.net/css?family=syne:400,500,600,700,800|jetbrains-mono:300,400,500');
+
+:root {
+  --bg: #06060f;
+  --acc: #6366f1;
+  --acc2: #a855f7;
+  --acc3: #3b82f6;
+  --t1: rgba(255,255,255,0.95);
+  --t2: rgba(255,255,255,0.55);
+  --t3: rgba(255,255,255,0.25);
+  --glass: rgba(255,255,255,0.04);
+  --glass-b: rgba(255,255,255,0.08);
+  --font: 'Syne', 'Trebuchet MS', 'Arial Black', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--t1);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* === CURSOR === */
+.cursor {
+  position: fixed;
+  width: 12px; height: 12px;
+  background: var(--acc);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  mix-blend-mode: screen;
+}
+.cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid rgba(99,102,241,0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+}
+body:hover .cursor { opacity: 1; }
+
+/* === NOISE OVERLAY === */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+/* === NAV === */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 500;
+  padding: 0 60px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: rgba(6,6,15,0.7);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  animation: navIn 0.8s ease forwards;
+  white-space: nowrap;
+}
+@keyframes navIn { from{opacity:0;transform:translateY(-20px);} to{opacity:1;transform:translateY(0);} }
+
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.nav-logo-mark {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+  box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+}
+.nav-logo-text { font-size: 20px; font-weight: 700; color: var(--t1); letter-spacing: -0.02em; }
+
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-link {
+  color: var(--t2); text-decoration: none; font-size: 13px;
+  font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: color 0.2s; position: relative; white-space: nowrap;
+  font-family: var(--font);
+}
+.nav-link::after {
+  content: ''; position: absolute; bottom: -4px; left: 0; right: 0;
+  height: 1px; background: var(--acc); transform: scaleX(0); transition: transform 0.2s;
+}
+.nav-link:hover { color: var(--t1); }
+.nav-link:hover::after { transform: scaleX(1); }
+
+.nav-dl {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border: none; border-radius: 10px; color: #fff;
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  cursor: none; letter-spacing: 0.02em; white-space: nowrap;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+  text-decoration: none; display: flex; align-items: center; gap: 7px;
+}
+.nav-dl:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.5); }
+
+/* === HERO === */
+#hero {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  padding: 120px 60px 80px;
+}
+
+.hero-bg {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.hero-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(120px); animation: orbFloat 15s ease-in-out infinite;
+}
+.orb1 { width:600px;height:600px;background:radial-gradient(circle,rgba(99,102,241,0.2),transparent 70%);top:-200px;left:-100px; }
+.orb2 { width:500px;height:500px;background:radial-gradient(circle,rgba(168,85,247,0.15),transparent 70%);bottom:-100px;right:-100px;animation-delay:-6s; }
+.orb3 { width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.12),transparent 70%);top:30%;right:20%;animation-delay:-11s; }
+@keyframes orbFloat {
+  0%,100%{transform:translate(0,0) scale(1);}
+  33%{transform:translate(30px,-40px) scale(1.08);}
+  66%{transform:translate(-20px,25px) scale(0.94);}
+}
+
+/* Grid lines */
+.hero-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+}
+
+.hero-content {
+  position: relative; z-index: 2;
+  max-width: 900px; text-align: center;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 20px; padding: 6px 16px;
+  font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  color: #a5b4fc; letter-spacing: 0.05em; margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.6s 0.2s forwards;
+}
+.hero-badge-dot { width:6px;height:6px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pulse 2s infinite; }
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+.hero-title {
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 28px;
+  font-style: normal;
+  font-stretch: normal;
+}
+.hero-title .line {
+  display: block; overflow: hidden;
+}
+.hero-title .line span {
+  display: block;
+  opacity: 0; transform: translateY(100%);
+  animation: lineReveal 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+.hero-title .line:nth-child(1) span { animation-delay: 0.3s; }
+.hero-title .line:nth-child(2) span { animation-delay: 0.45s; }
+.hero-title .line:nth-child(3) span { animation-delay: 0.6s; }
+@keyframes lineReveal { to { opacity:1; transform:translateY(0); } }
+
+.hero-title .grad {
+  background: linear-gradient(135deg, var(--acc) 0%, var(--acc2) 50%, var(--acc3) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradShift 4s ease-in-out infinite alternate;
+}
+@keyframes gradShift {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(20deg); }
+}
+
+.hero-sub {
+  font-size: 18px; color: var(--t2); line-height: 1.7;
+  max-width: 560px; margin: 0 auto 48px;
+  font-weight: 400; letter-spacing: -0.01em;
+  opacity: 0; animation: fadeUp 0.6s 0.75s forwards;
+}
+
+.hero-actions {
+  display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+  opacity: 0; animation: fadeUp 0.6s 0.9s forwards;
+}
+
+.btn-primary {
+  padding: 16px 36px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border: none; border-radius: 14px; color: #fff;
+  font-family: var(--font); font-size: 16px; font-weight: 700;
+  cursor: none; display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+  box-shadow: 0 8px 32px rgba(99,102,241,0.4);
+}
+.btn-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 16px 48px rgba(99,102,241,0.6); }
+
+.btn-secondary {
+  padding: 16px 36px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; color: var(--t1);
+  font-family: var(--font); font-size: 16px; font-weight: 600;
+  cursor: none; display: flex; align-items: center; gap: 10px;
+  text-decoration: none; backdrop-filter: blur(10px);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, background 0.2s;
+}
+.btn-secondary:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
+
+.hero-stats {
+  display: flex; gap: 48px; justify-content: center;
+  margin-top: 72px; padding-top: 48px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  opacity: 0; animation: fadeUp 0.6s 1.1s forwards;
+}
+.hero-stat { text-align: center; }
+.hero-stat-num {
+  font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+  font-style: normal; font-stretch: normal;
+  background: linear-gradient(135deg, #fff, rgba(255,255,255,0.6));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-stat-label { font-size: 11px; color: var(--t3); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+
+/* === MOCKUP === */
+.hero-mockup {
+  position: relative; z-index: 2;
+  margin-top: 80px;
+  opacity: 0; animation: mockupIn 1s 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes mockupIn { from{opacity:0;transform:translateY(40px) scale(0.96);} to{opacity:1;transform:translateY(0) scale(1);} }
+
+.mockup-window {
+  background: rgba(10,10,20,0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  max-width: 800px; margin: 0 auto;
+}
+.mockup-titlebar {
+  height: 40px; background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; padding: 0 16px; gap: 8px;
+}
+.mockup-dot { width:10px;height:10px;border-radius:50%; }
+.mockup-dot:nth-child(1){background:#ff5f57;}
+.mockup-dot:nth-child(2){background:#febc2e;}
+.mockup-dot:nth-child(3){background:#28c840;}
+.mockup-titlebar-text { margin-left: auto; margin-right: auto; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--t3); }
+
+.mockup-body {
+  display: flex; min-height: 340px;
+}
+.mockup-sidebar {
+  width: 200px; flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.05);
+  padding: 16px 12px;
+  background: rgba(255,255,255,0.01);
+}
+.mockup-sb-logo {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.mockup-sb-logo-icon {
+  width:30px;height:30px;background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;
+}
+.mockup-sb-logo-text { font-size:13px;font-weight:700; }
+
+.mockup-world {
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+  font-size: 12px; font-weight: 500; cursor: default;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.mockup-world.active { background: rgba(99,102,241,0.1); border-left: 2px solid var(--acc); }
+.mockup-world-badge {
+  display: inline-block; font-size: 8px; font-weight: 700; letter-spacing: 0.06em;
+  padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+}
+.badge-hc { background:rgba(239,68,68,0.15);color:#fca5a5; }
+.badge-cr { background:rgba(34,197,94,0.12);color:#86efac; }
+
+.mockup-content { flex: 1; padding: 20px; }
+.mockup-world-name { font-size: 20px; font-weight: 700; letter-spacing:-0.02em; margin-bottom: 16px; }
+
+.mockup-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mockup-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 12px;
+}
+.mockup-card-label { font-size: 9px; color:var(--t3); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:10px; }
+.mockup-stat-row { display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px; }
+.mockup-stat-l { color:var(--t2); }
+.mockup-stat-r { font-weight:600; }
+
+.mockup-btn {
+  width:100%; padding:8px; border-radius:8px; border:none;
+  font-family: var(--font); font-size:11px; font-weight:700;
+  cursor:default; margin-bottom:6px; letter-spacing:0.01em;
+}
+.mbtn-green{background:rgba(34,197,94,0.12);color:#86efac;}
+.mbtn-red{background:rgba(239,68,68,0.12);color:#fca5a5;}
+.mbtn-amber{background:rgba(245,158,11,0.12);color:#fcd34d;}
+
+/* === SECTIONS BASE === */
+section { padding: 120px 60px; position: relative; }
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--acc); margin-bottom: 16px; display: block;
+}
+.section-title {
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+  margin-bottom: 20px;
+}
+.section-sub {
+  font-size: 17px; color: var(--t2); line-height: 1.7; max-width: 520px;
+}
+
+/* === FEATURES === */
+#features { background: linear-gradient(180deg, var(--bg) 0%, rgba(10,10,25,1) 100%); }
+
+.features-header { margin-bottom: 72px; }
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.feature-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  border-radius: 20px; padding: 28px;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, box-shadow 0.3s;
+  opacity: 0; transform: translateY(30px);
+}
+.feature-card.visible { opacity:1; transform:translateY(0); }
+.feature-card:hover { transform: translateY(-6px); border-color: rgba(99,102,241,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+
+.feature-card::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(99,102,241,0.06) 0%, transparent 60%);
+  opacity:0; transition:opacity 0.3s;
+}
+.feature-card:hover::before { opacity:1; }
+
+.feature-icon {
+  width: 48px; height: 48px; border-radius: 14px; margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.feature-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+.feature-desc { font-size: 14px; color: var(--t2); line-height: 1.65; }
+
+.feature-card.large { grid-column: span 2; display: flex; align-items: center; gap: 32px; }
+
+/* === TECH === */
+#tech {
+  background: rgba(6,6,15,1);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tech-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+
+.tech-code {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px; padding: 28px; font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; line-height: 1.8; position: relative; overflow: hidden;
+}
+.tech-code::before {
+  content: ''; position: absolute; top:0;left:0;right:0; height:1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent);
+}
+.code-comment { color: rgba(255,255,255,0.25); }
+.code-key { color: #a5b4fc; }
+.code-val { color: #86efac; }
+.code-num { color: #fcd34d; }
+.code-fn  { color: #f9a8d4; }
+
+/* === HOW IT WORKS === */
+#how { background: var(--bg); }
+.steps { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; margin-top: 72px; position:relative; }
+.steps::before {
+  content:''; position:absolute; top:28px; left:calc(12.5% + 28px); right:calc(12.5% + 28px);
+  height:1px; background:linear-gradient(90deg,transparent,rgba(99,102,241,0.4),rgba(168,85,247,0.4),transparent);
+}
+.step { text-align:center; padding:0 20px; }
+.step-num {
+  width:56px;height:56px;border-radius:50%; margin:0 auto 20px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:800; position:relative;
+  box-shadow:0 0 0 8px rgba(99,102,241,0.08);
+}
+.step-title { font-size:16px;font-weight:700;margin-bottom:10px;letter-spacing:-0.01em; }
+.step-desc { font-size:13px;color:var(--t2);line-height:1.65; }
+
+/* === DOWNLOAD === */
+#download {
+  text-align:center;
+  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(99,102,241,0.1) 0%, transparent 70%), var(--bg);
+}
+.dl-version {
+  font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--t3);
+  margin-top:16px; letter-spacing:0.04em;
+}
+.dl-actions { display:flex; gap:14px; justify-content:center; margin-top:36px; }
+.dl-note { font-size:13px;color:var(--t3);margin-top:20px; }
+
+/* All buttons use var(--font) */
+button { font-family: var(--font); }
+
+/* === FOOTER === */
+footer {
+  padding:48px 60px;
+  border-top:1px solid rgba(255,255,255,0.05);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.footer-logo { display:flex;align-items:center;gap:10px;text-decoration:none; }
+.footer-right { text-align:right; }
+.footer-team { font-size:14px;font-weight:600;color:var(--t2); }
+.footer-copy { font-size:12px;color:var(--t3);margin-top:4px; }
+.footer-email { font-size:13px;color:var(--acc);text-decoration:none; }
+.footer-email:hover{color:#818cf8;}
+
+/* === ANIMATIONS === */
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+
+.reveal {
+  opacity:0; transform:translateY(40px);
+  transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.visible { opacity:1; transform:translateY(0); }
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.3);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursor-ring"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">V</div>
+    <span class="nav-logo-text">Vault</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Функции</a>
+    <a href="#tech" class="nav-link">Технологии</a>
+    <a href="#how" class="nav-link">Как работает</a>
+    <a href="#download" class="nav-link">Скачать</a>
+  </div>
+  <a href="#download" class="nav-dl">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 9.5V2M4 6.5L7 9.5l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Скачать бесплатно
+  </a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg">
+    <div class="hero-orb orb1"></div>
+    <div class="hero-orb orb2"></div>
+    <div class="hero-orb orb3"></div>
+    <div class="hero-grid"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      NXBT-Bridge 3.2.5 · Java 1.21.11 · Build 2.0.2-beta
+    </div>
+    <h1 class="hero-title">
+      <div class="line"><span>Редактор</span></div>
+      <div class="line"><span>миров <span class="grad">Minecraft</span></span></div>
+      <div class="line"><span>нового уровня</span></div>
+    </h1>
+    <p class="hero-sub">
+      Vault — профессиональный инструмент для редактирования сохранений Minecraft. Воскрешение, телепорт, хардкор, инвентарь — без запуска игры.
+    </p>
+    <div class="hero-actions">
+      <a href="#download" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M5 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Скачать Vault
+      </a>
+      <a href="#features" class="btn-secondary">
+        Посмотреть функции →
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-count="12">0</div>
+        <div class="hero-stat-label">Функций</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-count="6">0</div>
+        <div class="hero-stat-label">Языков</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">1.21.11</div>
+        <div class="hero-stat-label">Java Edition</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">100%</div>
+        <div class="hero-stat-label">Бесплатно</div>
+      </div>
+    </div>
+
+    <!-- Mockup -->
+    <div class="hero-mockup">
+      <div class="mockup-window">
+        <div class="mockup-titlebar">
+          <div class="mockup-dot"></div>
+          <div class="mockup-dot"></div>
+          <div class="mockup-dot"></div>
+          <div class="mockup-titlebar-text">Vault — World Editor</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-sb-logo">
+              <div class="mockup-sb-logo-icon">V</div>
+              <div class="mockup-sb-logo-text">Vault</div>
+            </div>
+            <div class="mockup-world active">
+              hardcore_world
+              <span class="mockup-world-badge badge-hc">Hardcore</span>
+            </div>
+            <div class="mockup-world">
+              my_survival
+            </div>
+            <div class="mockup-world">
+              creative_build
+              <span class="mockup-world-badge badge-cr">Creative</span>
+            </div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-world-name">hardcore_world</div>
+            <div class="mockup-cards">
+              <div class="mockup-card">
+                <div class="mockup-card-label">Статус игрока</div>
+                <div class="mockup-stat-row"><span class="mockup-stat-l">Здоровье</span><span class="mockup-stat-r">20 / 20</span></div>
+                <div class="mockup-stat-row"><span class="mockup-stat-l">Голод</span><span class="mockup-stat-r">20 / 20</span></div>
+                <div class="mockup-stat-row"><span class="mockup-stat-l">Хардкор</span><span class="mockup-stat-r" style="color:#fca5a5">Да</span></div>
+                <div class="mockup-stat-row"><span class="mockup-stat-l">День мира</span><span class="mockup-stat-r">142</span></div>
+              </div>
+              <div class="mockup-card">
+                <div class="mockup-card-label">Действия</div>
+                <button class="mockup-btn mbtn-green">+ Вылечить</button>
+                <button class="mockup-btn mbtn-amber">○ ТП на спавн</button>
+                <button class="mockup-btn mbtn-red">♥ Выкл. хардкор</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="features-header reveal">
+    <span class="section-label">// Возможности</span>
+    <h2 class="section-title">Всё что нужно<br>в одном инструменте</h2>
+    <p class="section-sub">12 функций для полного контроля над твоими мирами Minecraft. Без читов, без серверных плагинов.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card large reveal">
+      <div>
+        <div class="feature-icon" style="background:rgba(239,68,68,0.12)">💀</div>
+        <div class="feature-title">Воскрешение в хардкоре</div>
+        <div class="feature-desc">Умер в хардкоре? Не беда. Vault воскресит персонажа прямо на месте смерти — с вещами и опытом. Хардкор остаётся включённым, мир не удаляется.</div>
+      </div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.1s">
+      <div class="feature-icon" style="background:rgba(99,102,241,0.12)">📍</div>
+      <div class="feature-title">Телепорт</div>
+      <div class="feature-desc">Телепортация на любые координаты или к точке спавна — кровати или мировому спавну.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.15s">
+      <div class="feature-icon" style="background:rgba(34,197,94,0.12)">❤️</div>
+      <div class="feature-title">Восстановление</div>
+      <div class="feature-desc">Полное восстановление HP и голода одной кнопкой.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.2s">
+      <div class="feature-icon" style="background:rgba(245,158,11,0.12)">🌤</div>
+      <div class="feature-title">Погода и время</div>
+      <div class="feature-desc">Установить ясную погоду, сделать день или ночь прямо в файле сохранения.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.25s">
+      <div class="feature-icon" style="background:rgba(168,85,247,0.12)">🧹</div>
+      <div class="feature-title">Очистка эффектов</div>
+      <div class="feature-desc">Убрать все негативные эффекты — яд, замедление, слепоту.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.3s">
+      <div class="feature-icon" style="background:rgba(6,182,212,0.12)">🔧</div>
+      <div class="feature-title">Починка предметов</div>
+      <div class="feature-desc">Починить весь инвентарь и броню за один клик.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.35s">
+      <div class="feature-icon" style="background:rgba(59,130,246,0.12)">💾</div>
+      <div class="feature-title">Бэкапы</div>
+      <div class="feature-desc">Создавай именованные бэкапы и восстанавливай мир в любой момент.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.4s">
+      <div class="feature-icon" style="background:rgba(236,72,153,0.12)">🎒</div>
+      <div class="feature-title">Просмотр инвентаря</div>
+      <div class="feature-desc">Видеть все предметы в инвентаре игрока без входа в игру.</div>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:0.45s">
+      <div class="feature-icon" style="background:rgba(234,179,8,0.12)">📊</div>
+      <div class="feature-title">Статистика</div>
+      <div class="feature-desc">Время игры, смертей, убитых мобов, пройденных километров.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section id="tech">
+  <div class="tech-inner">
+    <div class="reveal">
+      <span class="section-label">// Технология</span>
+      <h2 class="section-title">NXBT-Bridge<br><span style="color:var(--acc)">3.2.5</span></h2>
+      <p class="section-sub" style="margin-bottom:24px">Движок прямого патчинга NBT-структур. Полностью переработан алгоритм обхода compound-тегов, устранены утечки gzip-блоков, добавлена валидация целостности.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;padding:6px 12px;border-radius:8px">DataVersion 3953+</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);color:#86efac;padding:6px 12px;border-radius:8px">≤12ms patch time</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);color:#fcd34d;padding:6px 12px;border-radius:8px">Java 1.21.11</span>
+      </div>
+    </div>
+    <div class="tech-code reveal" style="transition-delay:0.2s">
+<span class="code-comment">// NXBT-Bridge 3.2.5 — core patch routine</span>
+<br><span class="code-fn">async function</span> <span class="code-key">patchPlayer</span>(levelDat) {
+<br>  <span class="code-comment">// Parse compressed NBT structure</span>
+<br>  <span class="code-key">const</span> { parsed } = <span class="code-fn">await</span> readNBT(levelDat);
+<br>  <span class="code-key">const</span> Player = getPlayerTag(parsed);
+<br>
+<br>  <span class="code-comment">// Apply XOR-masked offsets</span>
+<br>  Player.Health = { <span class="code-key">type</span>: <span class="code-val">'float'</span>, <span class="code-key">value</span>: <span class="code-num">20.0</span> };
+<br>  Player.foodLevel = { <span class="code-key">type</span>: <span class="code-val">'int'</span>, <span class="code-key">value</span>: <span class="code-num">20</span> };
+<br>
+<br>  <span class="code-comment">// Validate checksum before write</span>
+<br>  <span class="code-fn">validateIntegrity</span>(parsed);
+<br>  <span class="code-fn">writeNBT</span>(levelDat, parsed);  <span class="code-comment">// ~8ms</span>
+<br>}
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="reveal" style="text-align:center;margin-bottom:0">
+    <span class="section-label">// Как использовать</span>
+    <h2 class="section-title">Четыре шага</h2>
+  </div>
+  <div class="steps">
+    <div class="step reveal" style="transition-delay:0.05s">
+      <div class="step-num">1</div>
+      <div class="step-title">Закрой Minecraft</div>
+      <div class="step-desc">Выйди из мира в главное меню или полностью закрой игру перед редактированием</div>
+    </div>
+    <div class="step reveal" style="transition-delay:0.15s">
+      <div class="step-num">2</div>
+      <div class="step-title">Открой Vault</div>
+      <div class="step-desc">Запусти программу, выбери лаунчер — Prism, MultiMC, TLauncher или вручную</div>
+    </div>
+    <div class="step reveal" style="transition-delay:0.25s">
+      <div class="step-num">3</div>
+      <div class="step-title">Выбери мир</div>
+      <div class="step-desc">Кликни на нужный мир из списка. Vault автоматически прочитает все данные</div>
+    </div>
+    <div class="step reveal" style="transition-delay:0.35s">
+      <div class="step-num">4</div>
+      <div class="step-title">Примени изменения</div>
+      <div class="step-desc">Нажми нужную кнопку и зайди в игру. Изменения применяются мгновенно</div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="reveal" style="text-align:center">
+    <span class="section-label">// Скачать</span>
+    <h2 class="section-title">Готов начать?</h2>
+    <p class="section-sub" style="margin:0 auto">Vault полностью бесплатен. Требуется только Node.js — один раз установить и забыть.</p>
+    <p class="dl-version">Vault v2.0.2-beta · NXBT-Bridge 3.2.5 · Windows x64</p>
+    <div class="dl-actions">
+      <a href="#" class="btn-primary" id="dl-btn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M5 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Скачать .zip
+      </a>
+      <a href="https://github.com" class="btn-secondary" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <p class="dl-note">Требования: Windows 10/11, Node.js (устанавливается автоматически)</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="footer-logo">
+    <div class="nav-logo-mark">V</div>
+    <span class="nav-logo-text">Vault</span>
+  </a>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t3)">
+    Build 2.0.2-beta · NXBT-Bridge 3.2.5
+  </div>
+  <div class="footer-right">
+    <div class="footer-team">Venth Team</div>
+    <div class="footer-copy">© 2026</div>
+    <a href="mailto:reimumom@duck.com" class="footer-email">reimumom@duck.com</a>
+  </div>
+</footer>
+
+<script>
+// Cursor
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; cursor.style.left=mx+'px'; cursor.style.top=my+'px'; });
+function animRing() { rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(animRing); }
+animRing();
+document.querySelectorAll('a,button').forEach(el => {
+  el.addEventListener('mouseenter',()=>{ cursor.style.width='20px';cursor.style.height='20px';ring.style.width='54px';ring.style.height='54px'; });
+  el.addEventListener('mouseleave',()=>{ cursor.style.width='12px';cursor.style.height='12px';ring.style.width='36px';ring.style.height='36px'; });
+});
+
+// Feature cards glow on mousemove
+document.querySelectorAll('.feature-card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = ((e.clientX-r.left)/r.width)*100;
+    const y = ((e.clientY-r.top)/r.height)*100;
+    card.style.setProperty('--mx', x+'%');
+    card.style.setProperty('--my', y+'%');
+  });
+});
+
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), 0);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal, .feature-card').forEach(el => observer.observe(el));
+
+// Counter animation
+function animateCount(el, target) {
+  let current = 0;
+  const step = target / 40;
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = Math.round(current);
+    if (current >= target) clearInterval(timer);
+  }, 30);
+}
+const countObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const target = parseInt(el.dataset.count);
+      if (target) animateCount(el, target);
+      countObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('[data-count]').forEach(el => countObserver.observe(el));
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (id === '#') return;
+    e.preventDefault();
+    document.querySelector(id)?.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+</body>
+</html>
