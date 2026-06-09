@@ -1,0 +1,41 @@
+{
+  "name": "vault-mc",
+  "version": "2.0.0",
+  "description": "Vault - Minecraft World Editor by Venth Team",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64 --publish never"
+  },
+  "build": {
+    "appId": "com.venth.vault",
+    "productName": "Vault",
+    "publish": null,
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!node_modules/.cache/**"
+    ]
+  },
+  "dependencies": {
+    "prismarine-nbt": "^2.5.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "author": "Venth Team",
+  "license": "MIT"
+}
