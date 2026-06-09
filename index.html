@@ -44,7 +44,14 @@ footer{flex-direction:column;gap:16px;text-align:center;padding:32px 20px;}
 .hero-stats{gap:16px;}
 .nav-logo-text{font-size:17px;}
 }
-</style></head><body><div class="cursor" id="cursor"></div><div class="cursor-ring" id="cursor-ring"></div><nav><a href="#" class="nav-logo"><div class="nav-logo-mark">V</div><span class="nav-logo-text">Vault</span></a><div class="nav-links"><a href="#features" class="nav-link">Функции</a><a href="#tech" class="nav-link">Технологии</a><a href="#how" class="nav-link">Как работает</a><a href="#download" class="nav-link">Скачать</a></div><a href="https://github.com/awdDA121S/vault/releases" class="nav-dl" target="_blank"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 9.5V2M4 6.5L7 9.5l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+
+.faq-item{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;transition:border-color 0.2s;}
+.faq-item:hover{border-color:rgba(99,102,241,0.25);}
+.faq-q{padding:18px 22px;font-size:15px;font-weight:700;letter-spacing:-0.01em;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.faq-q::after{content:"+";font-size:20px;color:var(--acc);font-weight:300;flex-shrink:0;}
+.faq-a{padding:0 22px 18px;font-size:13.5px;color:var(--t2);line-height:1.7;}
+@media(max-width:768px){.faq-q{font-size:13px;padding:14px 16px;}.faq-a{padding:0 16px 14px;font-size:12.5px;}}
+</style></head><body><div class="cursor" id="cursor"></div><div class="cursor-ring" id="cursor-ring"></div><nav><a href="#" class="nav-logo"><div class="nav-logo-mark">V</div><span class="nav-logo-text">Vault</span></a><div class="nav-links"><a href="#features" class="nav-link">Функции</a><a href="#tech" class="nav-link">Технологии</a><a href="#how" class="nav-link">Как работает</a><a href="#download" class="nav-link">Скачать</a><a href="#faq" class="nav-link">FAQ</a></div><a href="https://github.com/awdDA121S/vault/releases" class="nav-dl" target="_blank"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 9.5V2M4 6.5L7 9.5l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     Скачать бесплатно
   </a></nav><section id="hero"><div class="hero-bg"><div class="hero-orb orb1"></div><div class="hero-orb orb2"></div><div class="hero-orb orb3"></div><div class="hero-grid"></div></div><div class="hero-content"><div class="hero-badge"><span class="hero-badge-dot"></span>
       NXBT-Bridge 3.2.5 · Java 1.21.11 · Build 2.0.2-beta
@@ -82,7 +89,44 @@ footer{flex-direction:column;gap:16px;text-align:center;padding:32px 20px;}
         Скачать .exe
       </a><a href="https://github.com/awdDA121S/vault/releases" target="_blank" rel="noopener" class="btn-secondary" target="_blank"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
-      </a></div><p class="dl-note">Требования: Windows 10/11, Node.js (устанавливается автоматически)</p></div></section><footer><a href="#" class="footer-logo"><div class="nav-logo-mark">V</div><span class="nav-logo-text">Vault</span></a><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t3)">
+      </a></div><p class="dl-note">Требования: Windows 10/11, Node.js (устанавливается автоматически)</p></div></section>
+<!-- FAQ -->
+<section id="faq" style="background:rgba(6,6,15,1);border-top:1px solid rgba(255,255,255,0.04);">
+<div class="reveal" style="max-width:760px;margin:0 auto;">
+  <span class="section-label">// FAQ</span>
+  <h2 class="section-title" style="margin-bottom:48px">Частые вопросы</h2>
+
+  <div style="display:flex;flex-direction:column;gap:12px;">
+
+    <div class="faq-item">
+      <div class="faq-q">Vault - это вирус?</div>
+      <div class="faq-a">Нет. Vault не содержит вредоносного кода. Программа проверена на <a href="https://www.virustotal.com/gui/file/d135f4773c5110253f0acd09f54b919563bb07e0850618202e008e0049db0971/detection" target="_blank" rel="noopener" style="color:#a5b4fc;text-decoration:none;border-bottom:1px solid rgba(165,180,252,0.3);">VirusTotal</a> - 0 угроз из 70+ антивирусных движков. Некоторые антивирусы могут ложно срабатывать на Electron-приложения - это известная особенность фреймворка, не связанная с реальной угрозой.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Почему закрытый исходный код?</div>
+      <div class="faq-a">Мы потратили месяцы на разработку уникального интерфейса и движка прямой модификации NBT-структур NXBT-Bridge. Открытый код означал бы мгновенное копирование алгоритмов конкурентами и их использование в платных продуктах. Ядро остаётся приватным для защиты интеллектуальной собственности команды.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Vault безопасен для моих сохранений?</div>
+      <div class="faq-a">Да, при правильном использовании. Всегда выходи из мира в главное меню перед применением изменений. Используй встроенную систему бэкапов перед важными правками - она создаёт полную копию мира за секунды.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Какие версии Minecraft поддерживаются?</div>
+      <div class="faq-a">Текущая версия Vault оптимизирована под Minecraft Java Edition 1.21.11 (DataVersion 3953+). Поддержка других версий находится в разработке. Bedrock Edition не поддерживается.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Можно ли получить бан за использование?</div>
+      <div class="faq-a">В одиночной игре - нет. Vault работает офлайн с локальными файлами сохранений. На серверах использование может нарушать правила сервиса - используй на свой страх и риск.</div>
+    </div>
+
+  </div>
+</div>
+</section>
+<footer><a href="#" class="footer-logo"><div class="nav-logo-mark">V</div><span class="nav-logo-text">Vault</span></a><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t3)">
     Build 2.0.2-beta · NXBT-Bridge 3.2.5
   </div><div class="footer-right"><div class="footer-team">Venth Team</div><div class="footer-copy">© 2026</div><a href="mailto:reimumom@duck.com" class="footer-email">reimumom@duck.com</a></div></footer><script>const cursor = document.getElementById('cursor');
 const ring = document.getElementById('cursor-ring');
