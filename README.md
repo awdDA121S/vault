@@ -4,7 +4,7 @@
 
 ## Скачать
 
-**[Скачать Vault v2.0.2-beta](https://github.com/awdDA121S/vault/releases)**
+**[Скачать Vault v2.0.3](https://github.com/awdDA121S/vault/releases/download/v2.0.3-mini/Vault.Setup.2.0.3.exe)**
 
 ## Возможности
 
@@ -16,6 +16,7 @@
 - Починить все предметы и броню
 - Ясная погода / день / ночь
 - Просмотр инвентаря
+- Поиск и избранное для миров
 - Статистика игрока
 - Бэкапы с кастомным именем и восстановлением
 - Поддержка мультиплеера
@@ -30,11 +31,15 @@
 
 Скачай установщик с [releases](https://github.com/awdDA121S/vault/releases) и запусти его.
 
+## Технология
+
+NXBT-Bridge 3.3.0 - движок прямого патчинга NBT-структур (форк prismarine-nbt), DataVersion 3953+, ≤12ms patch time.
+
 ## Безопасность
 
 Исходный код открыт для проверки. Проверено на VirusTotal - 0/72 детектов.
 
-[Отчёт VirusTotal](https://www.virustotal.com/gui/file/d135f4773c5110253f0acd09f54b919563bb07e0850618202e008e0049db0971/detection)
+[Отчёт VirusTotal](https://www.virustotal.com/gui/file/3073a6d91a78e2d0ceb03799ad6b1f7ad24ffbbf383652af17040d6ad24893c1?nocache=1)
 
 ## Контакты
 
