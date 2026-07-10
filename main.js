@@ -1,8 +1,26 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const fsp  = fs.promises;
 const os   = require('os');
 const zlib = require('zlib');
+
+// Avoid GPU shader/disk cache permission errors seen on some Windows setups
+// (these caused brief black-screen flashes and "cache creation failed" errors).
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+// Force userData/cache into a normal, reliably-writable folder instead of
+// whatever default Electron picks (helps avoid "Access is denied" cache
+// errors on restricted or synced folders).
+app.setPath('userData', path.join(app.getPath('appData'), 'Vault'));
+
+// Safety net: log unexpected errors instead of letting the whole app crash
+// mid-operation (which could otherwise interrupt a world file write).
+process.on('uncaughtException', (err) => {
+  console.error('Unhandled exception (app kept running):', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled promise rejection (app kept running):', err);
+});
 
 let mainWindow;
 
@@ -12,7 +30,7 @@ function createWindow() {
     frame: false, transparent: true,
     backgroundColor: '#00000000',
     backgroundMaterial: 'acrylic',
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    webPreferences: { nodeIntegration: true, contextIsolation: false, defaultEncoding: 'UTF-8' },
     show: false
   });
   mainWindow.loadFile('src/index.html');
@@ -25,7 +43,7 @@ function createWindow() {
   });
   mainWindow.on('closed', () => { mainWindow = null; });
 
-  // Intercept status bar update events — returning false suppresses the bar
+  // Intercept status bar update events - returning false suppresses the bar
   mainWindow.webContents.on('update-target-url', (event) => {
     event.preventDefault && event.preventDefault();
   });
@@ -52,37 +70,40 @@ ipcMain.handle('find-tlauncher-saves', async () => {
   const appdata  = process.env.APPDATA  || path.join(os.homedir(), 'AppData', 'Roaming');
   const localapp = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
 
-  function scanInstances(instancesDir) {
-    if (!fs.existsSync(instancesDir)) return null;
+  async function pathExists(p) { try { await fsp.access(p); return true; } catch { return false; } }
+
+  async function scanInstances(instancesDir) {
+    if (!(await pathExists(instancesDir))) return null;
     try {
-      const instances = fs.readdirSync(instancesDir, { withFileTypes: true })
-        .filter(e => e.isDirectory())
-        .map(e => ({
-          name: e.name,
-          mtime: (() => { try { return fs.statSync(path.join(instancesDir, e.name)).mtimeMs; } catch { return 0; } })()
-        }))
-        .sort((a, b) => b.mtime - a.mtime);
-      for (const inst of instances) {
+      const dirents = await fsp.readdir(instancesDir, { withFileTypes: true });
+      const dirs = dirents.filter(e => e.isDirectory());
+      const withTimes = await Promise.all(dirs.map(async e => {
+        let mtime = 0;
+        try { mtime = (await fsp.stat(path.join(instancesDir, e.name))).mtimeMs; } catch {}
+        return { name: e.name, mtime };
+      }));
+      withTimes.sort((a, b) => b.mtime - a.mtime);
+      for (const inst of withTimes) {
         const saves = path.join(instancesDir, inst.name, 'minecraft', 'saves');
-        if (fs.existsSync(saves)) return saves;
+        if (await pathExists(saves)) return saves;
       }
     } catch {}
     return null;
   }
 
-  const prismFound = scanInstances(path.join(appdata, 'PrismLauncher', 'instances'))
-    || scanInstances(path.join(localapp, 'PrismLauncher', 'instances'));
+  const prismFound = (await scanInstances(path.join(appdata, 'PrismLauncher', 'instances')))
+    || (await scanInstances(path.join(localapp, 'PrismLauncher', 'instances')));
   if (prismFound) return prismFound;
 
-  const mmcFound = scanInstances(path.join(appdata, 'MultiMC', 'instances'))
-    || scanInstances(path.join(os.homedir(), 'MultiMC', 'instances'));
+  const mmcFound = (await scanInstances(path.join(appdata, 'MultiMC', 'instances')))
+    || (await scanInstances(path.join(os.homedir(), 'MultiMC', 'instances')));
   if (mmcFound) return mmcFound;
 
   const tl = path.join(appdata, '.tlauncher', 'minecraft', 'game', 'saves');
-  if (fs.existsSync(tl)) return tl;
+  if (await pathExists(tl)) return tl;
 
   const vanilla = path.join(appdata, '.minecraft', 'saves');
-  if (fs.existsSync(vanilla)) return vanilla;
+  if (await pathExists(vanilla)) return vanilla;
 
   return null;
 });
@@ -93,48 +114,51 @@ ipcMain.handle('find-all-instances', async () => {
   const localapp = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
   const results  = [];
 
+  async function pathExists(p) { try { await fsp.access(p); return true; } catch { return false; } }
+
   // Try to detect MC version from instance folder
-  function detectVersion(instanceDir) {
+  async function detectVersion(instanceDir) {
     try {
       // Prism/MultiMC: mmc-pack.json
       const mmcPack = path.join(instanceDir, 'mmc-pack.json');
-      if (fs.existsSync(mmcPack)) {
-        const data = JSON.parse(fs.readFileSync(mmcPack, 'utf8'));
+      if (await pathExists(mmcPack)) {
+        const data = JSON.parse(await fsp.readFile(mmcPack, 'utf8'));
         const comp = (data.components || []).find(c => c.uid === 'net.minecraft');
         if (comp && comp.version) return comp.version;
       }
       // Prism: instance.cfg
       const cfg = path.join(instanceDir, 'instance.cfg');
-      if (fs.existsSync(cfg)) {
-        const text = fs.readFileSync(cfg, 'utf8');
+      if (await pathExists(cfg)) {
+        const text = await fsp.readFile(cfg, 'utf8');
         const m = text.match(/IntendedVersion=([^\r\n]+)/);
         if (m) return m[1].trim();
       }
       // Vanilla / TLauncher: minecraft/version.json inside instance
       const verJson = path.join(instanceDir, 'minecraft', 'version.json');
-      if (fs.existsSync(verJson)) {
-        const data = JSON.parse(fs.readFileSync(verJson, 'utf8'));
+      if (await pathExists(verJson)) {
+        const data = JSON.parse(await fsp.readFile(verJson, 'utf8'));
         if (data.id) return data.id;
       }
     } catch {}
     return null;
   }
 
-  // For standalone saves folders (vanilla, TLauncher) — look for version.json one level up
-  function detectVersionFromSaves(savesPath) {
+  // For standalone saves folders (vanilla, TLauncher) - look for version.json one level up
+  async function detectVersionFromSaves(savesPath) {
     try {
       // Go up from saves to .minecraft root
       const mcRoot = path.dirname(savesPath);
       // Check versions folder for most recent version
       const versionsDir = path.join(mcRoot, 'versions');
-      if (fs.existsSync(versionsDir)) {
-        const vers = fs.readdirSync(versionsDir, { withFileTypes: true })
-          .filter(e => e.isDirectory())
-          .map(e => ({
-            name: e.name,
-            mtime: (() => { try { return fs.statSync(path.join(versionsDir, e.name)).mtimeMs; } catch { return 0; } })()
-          }))
-          .sort((a, b) => b.mtime - a.mtime);
+      if (await pathExists(versionsDir)) {
+        const dirents = await fsp.readdir(versionsDir, { withFileTypes: true });
+        const dirs = dirents.filter(e => e.isDirectory());
+        const vers = await Promise.all(dirs.map(async e => {
+          let mtime = 0;
+          try { mtime = (await fsp.stat(path.join(versionsDir, e.name))).mtimeMs; } catch {}
+          return { name: e.name, mtime };
+        }));
+        vers.sort((a, b) => b.mtime - a.mtime);
         if (vers.length > 0) return vers[0].name;
       }
     } catch {}
@@ -156,21 +180,22 @@ ipcMain.handle('find-all-instances', async () => {
     return null;
   }
 
-  function scanInstances(instancesDir, launcherName) {
-    if (!fs.existsSync(instancesDir)) return;
+  async function scanInstances(instancesDir, launcherName) {
+    if (!(await pathExists(instancesDir))) return;
     try {
-      const instances = fs.readdirSync(instancesDir, { withFileTypes: true })
-        .filter(e => e.isDirectory())
-        .map(e => ({
-          name: e.name,
-          mtime: (() => { try { return fs.statSync(path.join(instancesDir, e.name)).mtimeMs; } catch { return 0; } })()
-        }))
-        .sort((a, b) => b.mtime - a.mtime);
-      for (const inst of instances) {
+      const dirents = await fsp.readdir(instancesDir, { withFileTypes: true });
+      const dirs = dirents.filter(e => e.isDirectory());
+      const withTimes = await Promise.all(dirs.map(async e => {
+        let mtime = 0;
+        try { mtime = (await fsp.stat(path.join(instancesDir, e.name))).mtimeMs; } catch {}
+        return { name: e.name, mtime };
+      }));
+      withTimes.sort((a, b) => b.mtime - a.mtime);
+      await Promise.all(withTimes.map(async inst => {
         const instPath = path.join(instancesDir, inst.name);
         const saves = path.join(instPath, 'minecraft', 'saves');
-        if (fs.existsSync(saves)) {
-          const version = detectVersion(instPath);
+        if (await pathExists(saves)) {
+          const version = await detectVersion(instPath);
           const supported = versionSupported(version);
           results.push({
             launcher: launcherName,
@@ -181,24 +206,71 @@ ipcMain.handle('find-all-instances', async () => {
             mtime: inst.mtime
           });
         }
-      }
+      }));
     } catch {}
   }
 
-  scanInstances(path.join(appdata,  'PrismLauncher', 'instances'), 'Prism Launcher');
-  scanInstances(path.join(localapp, 'PrismLauncher', 'instances'), 'Prism Launcher');
-  scanInstances(path.join(appdata,  'MultiMC', 'instances'), 'MultiMC');
-  scanInstances(path.join(os.homedir(), 'MultiMC', 'instances'), 'MultiMC');
+  // Some launchers keep "saves" directly inside each instance/profile folder
+  // (no nested "minecraft" subfolder) - ATLauncher, Technic, CurseForge,
+  // Modrinth App, FTB App, XMCL, Lunar Client all follow this layout.
+  async function scanInstancesDirectSaves(instancesDir, launcherName, versionFromFolderName) {
+    if (!(await pathExists(instancesDir))) return;
+    try {
+      const dirents = await fsp.readdir(instancesDir, { withFileTypes: true });
+      const dirs = dirents.filter(e => e.isDirectory());
+      const withTimes = await Promise.all(dirs.map(async e => {
+        let mtime = 0;
+        try { mtime = (await fsp.stat(path.join(instancesDir, e.name))).mtimeMs; } catch {}
+        return { name: e.name, mtime };
+      }));
+      withTimes.sort((a, b) => b.mtime - a.mtime);
+      await Promise.all(withTimes.map(async inst => {
+        const instPath = path.join(instancesDir, inst.name);
+        const saves = path.join(instPath, 'saves');
+        if (await pathExists(saves)) {
+          const version = versionFromFolderName ? inst.name : (await detectVersionFromSaves(saves));
+          const supported = versionSupported(version);
+          results.push({
+            launcher: launcherName,
+            name: inst.name,
+            saves,
+            version: version || 'неизвестно',
+            supported,
+            mtime: inst.mtime
+          });
+        }
+      }));
+    } catch {}
+  }
+
+  await Promise.all([
+    scanInstances(path.join(appdata,  'PrismLauncher', 'instances'), 'Prism Launcher'),
+    scanInstances(path.join(localapp, 'PrismLauncher', 'instances'), 'Prism Launcher'),
+    scanInstances(path.join(appdata,  'MultiMC', 'instances'), 'MultiMC'),
+    scanInstances(path.join(os.homedir(), 'MultiMC', 'instances'), 'MultiMC'),
+    scanInstances(path.join(appdata,  'PolyMC', 'instances'), 'PolyMC'),
+    scanInstances(path.join(localapp, 'PolyMC', 'instances'), 'PolyMC'),
+    scanInstances(path.join(appdata,  'gdlauncher_carbon', 'instances'), 'GDLauncher'),
+    scanInstances(path.join(appdata,  'gdlauncher_next', 'instances'), 'GDLauncher'),
+    scanInstancesDirectSaves(path.join(appdata, 'ATLauncher', 'instances'), 'ATLauncher'),
+    scanInstancesDirectSaves(path.join(appdata, '.technic', 'modpacks'), 'Technic Launcher'),
+    scanInstancesDirectSaves(path.join(os.homedir(), 'curseforge', 'minecraft', 'Instances'), 'CurseForge'),
+    scanInstancesDirectSaves(path.join(appdata, 'Twitch', 'Minecraft', 'Instances'), 'CurseForge'),
+    scanInstancesDirectSaves(path.join(appdata, 'ModrinthApp', 'profiles'), 'Modrinth App'),
+    scanInstancesDirectSaves(path.join(appdata, '.ftba', 'instances'), 'FTB App'),
+    scanInstancesDirectSaves(path.join(appdata, 'xmcl', 'instances'), 'X-Minecraft-Launcher'),
+    scanInstancesDirectSaves(path.join(appdata, '.lunarclient', 'offline', 'multiver'), 'Lunar Client', true),
+  ]);
 
   const tl = path.join(appdata, '.tlauncher', 'minecraft', 'game', 'saves');
-  if (fs.existsSync(tl)) {
-    const ver = detectVersionFromSaves(tl);
+  if (await pathExists(tl)) {
+    const ver = await detectVersionFromSaves(tl);
     results.push({ launcher: 'TLauncher', name: 'TLauncher', saves: tl, version: ver, supported: versionSupported(ver), mtime: 0 });
   }
 
   const vanilla = path.join(appdata, '.minecraft', 'saves');
-  if (fs.existsSync(vanilla)) {
-    const ver = detectVersionFromSaves(vanilla);
+  if (await pathExists(vanilla)) {
+    const ver = await detectVersionFromSaves(vanilla);
     results.push({ launcher: 'Minecraft', name: '.minecraft', saves: vanilla, version: ver, supported: versionSupported(ver), mtime: 0 });
   }
 
@@ -420,6 +492,29 @@ ipcMain.handle('get-inventory-player', async (_, worldPath, datPath) => {
   } catch { return []; }
 });
 
+// Read local usercache.json (no network) to map player UUID -> real username.
+// This file lives next to the "saves" folder (the game/instance root) for
+// vanilla, TLauncher, and Prism/MultiMC installs alike.
+function loadUserCacheMap(worldPath) {
+  const map = new Map();
+  try {
+    const savesDir = path.dirname(worldPath);
+    const gameRoot = path.dirname(savesDir);
+    const cachePath = path.join(gameRoot, 'usercache.json');
+    if (fs.existsSync(cachePath)) {
+      const arr = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (Array.isArray(arr)) {
+        for (const entry of arr) {
+          if (entry && entry.uuid && entry.name) {
+            map.set(String(entry.uuid).toLowerCase(), entry.name);
+          }
+        }
+      }
+    }
+  } catch {}
+  return map;
+}
+
 ipcMain.handle('get-players', async (_, worldPath) => {
   try {
     const dir = path.join(worldPath, 'playerdata');
@@ -428,13 +523,16 @@ ipcMain.handle('get-players', async (_, worldPath) => {
       .filter(f => f.endsWith('.dat') && !f.includes('_old'));
     if (!files.length) return [];
 
+    const userCache = loadUserCacheMap(worldPath);
+
     const players = [];
     for (const file of files) {
       const rawName = file.replace('.dat', '');
       const datPath = path.join(dir, file);
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawName);
-      // Show short UUID or filename as name — fast, no network
-      const name = isUUID ? rawName.slice(0, 8) : rawName;
+      // Prefer the real username from the local usercache.json; fall back to short UUID
+      const cachedName = isUUID ? userCache.get(rawName.toLowerCase()) : null;
+      const name = cachedName || (isUUID ? rawName.slice(0, 8) : rawName);
       let health = 20, dead = false;
       try {
         const { parsed } = await readNBT(datPath);
@@ -443,15 +541,15 @@ ipcMain.handle('get-players', async (_, worldPath) => {
         health = typeof hp === 'number' ? Math.round(hp) : 20;
         dead = health <= 0 || (v(d.DeathTime) || 0) > 0;
       } catch {}
-      players.push({ uuid: rawName, name, datPath, health, dead, nameResolved: false });
+      players.push({ uuid: rawName, name, datPath, health, dead, nameResolved: !!cachedName });
     }
     return players;
   } catch { return []; }
 });
 
-// Resolve player names - returns names from filenames only, no network
+// Names are already resolved locally (usercache.json) inside get-players; kept for compatibility.
 ipcMain.handle('resolve-player-names', async (_, players) => {
-  return players.map(p => ({ ...p, nameResolved: true }));
+  return players;
 });
 
 // ─── FILE HELPERS ──────────────────────────────────────────────────────────
@@ -469,14 +567,20 @@ function findPlayerDat(worldPath) {
 
 async function readNBT(filePath) {
   const pnbt = require('prismarine-nbt');
-  const buf = fs.readFileSync(filePath);
+  const buf = await fsp.readFile(filePath);
   return await pnbt.parse(buf);
 }
 
 function writeNBT(filePath, parsed) {
   const pnbt = require('prismarine-nbt');
   const raw = pnbt.writeUncompressed(parsed);
-  fs.writeFileSync(filePath, zlib.gzipSync(raw));
+  const gz = zlib.gzipSync(raw);
+  // Atomic write: write to a temp file first, then rename over the target.
+  // If the app crashes or loses power mid-write, the original file is left
+  // untouched instead of being truncated/corrupted.
+  const tmpPath = `${filePath}.tmp${process.pid}`;
+  fs.writeFileSync(tmpPath, gz);
+  fs.renameSync(tmpPath, filePath);
 }
 
 // Extract value from NBT tag wrapper { type, value } or plain value
@@ -504,7 +608,7 @@ async function parseWorldInfo(levelDat) {
   const hc = v(Data.hardcore);
   const hardcore = hc === 1 || hc === true;
 
-  // World spawn — stored as Data.spawn compound OR Data.SpawnX/Y/Z
+  // World spawn - stored as Data.spawn compound OR Data.SpawnX/Y/Z
   let spawnX = 0, spawnY = 64, spawnZ = 0;
   if (Data.spawn) {
     const sp = v(Data.spawn);
@@ -589,7 +693,7 @@ async function parsePlayerFromLevelDat(levelDat) {
   return { health: hp, foodLevel, xpLevel, pos, spawnX, spawnY, spawnZ, dead };
 }
 
-// ─── ACTIONS — all operate on level.dat → Data.Player ─────────────────────
+// --- ACTIONS - all operate on level.dat -> Data.Player ---
 
 // Helper: get player compound from level.dat
 async function withPlayer(levelDat, fn) {
@@ -652,7 +756,7 @@ async function teleportPlayer(levelDat, x, y, z) {
 
 async function teleportToSpawn(levelDat) {
   await withPlayer(levelDat, async (d) => {
-    // Simply delete Pos — game will respawn player at spawn point on next load
+    // Simply delete Pos - game will respawn player at spawn point on next load
     // This avoids spawning underground or at wrong Y
     delete d.Pos;
   });

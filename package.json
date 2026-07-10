@@ -1,6 +1,6 @@
 {
   "name": "vault-mc",
-  "version": "2.0.0",
+  "version": "2.0.4",
   "description": "Vault - Minecraft World Editor by Venth Team",
   "main": "main.js",
   "scripts": {
