@@ -4,7 +4,7 @@
 
 ## Скачать
 
-**[Скачать Vault v2.0.3](https://github.com/awdDA121S/vault/releases/download/v2.0.3/Vault.Setup.2.0.3.exe)**
+**[Скачать Vault v2.0.4](https://github.com/awdDA121S/vault/releases/download/v2.0.4-mini/Vault.Setup.2.0.4.exe)**
 
 ## Возможности
 
@@ -33,13 +33,13 @@
 
 ## Технология
 
-NXBT-Bridge 3.3.0 - движок прямого патчинга NBT-структур (форк prismarine-nbt), DataVersion 3953+, ≤12ms patch time.
+NXBT-Bridge 3.3.5 - движок прямого патчинга NBT-структур (форк prismarine-nbt), DataVersion 3953+, ≤12ms patch time.
 
 ## Безопасность
 
 Исходный код открыт для проверки. Проверено на VirusTotal - 0/72 детектов.
 
-[Отчёт VirusTotal](https://www.virustotal.com/gui/file/9c640f1c92a58fd7859237a493a873d45673504ab95d792727c4c51dbad2ae86?nocache=1)
+[Отчёт VirusTotal](https://www.virustotal.com/gui/file/c1fb09dc6b36a5038021309cb49ca886a8ea11e41e9a339777f82c89719a334b?nocache=1)
 
 ## Контакты
 
